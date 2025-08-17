@@ -1,0 +1,535 @@
+// routes/attendance.js
+const express = require("express");
+const router = express.Router();
+const Attendance = require("../models/attendance");
+const { authenticateToken, authorizeRoles } = require("../middleware/auth");
+
+// GET /api/attendance - Get all attendance records
+router.get(
+  "/",
+  authenticateToken,
+  authorizeRoles(["admin"]),
+  async (req, res) => {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        employee,
+        startDate,
+        endDate,
+        status,
+      } = req.query;
+
+      let query = {};
+
+      if (employee) {
+        query.employee = employee;
+      }
+
+      if (startDate && endDate) {
+        query.date = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        };
+      }
+
+      if (status) {
+        query.status = status;
+      }
+
+      const attendance = await Attendance.find(query)
+        .populate("employee", "firstName lastName employeeId")
+        .populate("approvedBy", "firstName lastName")
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .sort({ date: -1 });
+
+      const total = await Attendance.countDocuments(query);
+
+      res.json({
+        success: true,
+        data: attendance,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// POST /api/attendance/check-in - Employee check-in
+// router.post("/check-in", authenticateToken, async (req, res) => {
+//   try {
+//     const { location } = req.body;
+//     location.type; // ✅ exists only if wrapped inside "location"
+//     location.coordinates;
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+
+//     // Check if already checked in today
+//     const existingAttendance = await Attendance.findOne({
+//       employee: req.user.employeeId,
+//       date: today,
+//     });
+
+//     if (existingAttendance && existingAttendance.checkIn.time) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Already checked in today",
+//       });
+//     }
+
+//     let attendance;
+
+//     if (existingAttendance) {
+//       // Update existing record
+//       attendance = existingAttendance;
+//     } else {
+//       // Create new record
+//       attendance = new Attendance({
+//         employee: req.user.employeeId,
+//         date: today,
+//       });
+//     }
+
+//     attendance.checkIn = {
+//       time: new Date(),
+//       location: {
+//         type: req.body.location.type,
+//         coordinates: req.body.location.coordinates,
+//       },
+//     };
+
+//     // Determine status based on check-in time
+//     const checkInTime = new Date();
+//     const workStartTime = new Date();
+//     workStartTime.setHours(9, 0, 0, 0); // 9 AM
+
+//     if (checkInTime > workStartTime) {
+//       attendance.status = "late";
+//     } else {
+//       attendance.status = "present";
+//     }
+
+//     await attendance.save();
+
+//     res.json({
+//       success: true,
+//       message: "Check-in successful",
+//       data: attendance,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// });
+router.post("/check-in", authenticateToken, async (req, res) => {
+  try {
+    const { location } = req.body;
+
+    if (!location || !location.type || !location.coordinates) {
+      return res.status(400).json({
+        success: false,
+        message: "Location is required (type & coordinates)",
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 🔎 Check if already checked in today
+    const existingAttendance = await Attendance.findOne({
+      employee: req.user.employeeId, // middleware se aana chahiye
+      date: today,
+    });
+
+    if (existingAttendance && existingAttendance.checkIn?.time) {
+      return res.status(400).json({
+        success: false,
+        message: "Already checked in today",
+      });
+    }
+
+    let attendance;
+
+    if (existingAttendance) {
+      // 🔄 Update existing record
+      attendance = existingAttendance;
+    } else {
+      // 🆕 Create new record
+      attendance = new Attendance({
+        employee: req.user.employeeId,
+        date: today,
+      });
+    }
+
+    attendance.checkIn = {
+      time: new Date(),
+      location: {
+        type: location.type,
+        coordinates: location.coordinates, // [longitude, latitude]
+      },
+    };
+
+    // ✅ Mark status based on time
+    const checkInTime = new Date();
+    const workStartTime = new Date();
+    workStartTime.setHours(9, 0, 0, 0); // 9 AM
+
+    if (checkInTime > workStartTime) {
+      attendance.status = "late";
+    } else {
+      attendance.status = "present";
+    }
+
+    await attendance.save();
+
+    return res.json({
+      success: true,
+      message: "Check-in successful",
+      data: attendance,
+    });
+  } catch (error) {
+    console.error("Check-in error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+// POST /api/attendance/check-out - Employee check-out
+router.post("/check-out", authenticateToken, async (req, res) => {
+  try {
+    const { location } = req.body;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const attendance = await Attendance.findOne({
+      employee: req.user.employeeId,
+      date: today,
+    });
+
+    if (!attendance) {
+      return res.status(400).json({
+        success: false,
+        message: "No check-in record found for today",
+      });
+    }
+
+    if (attendance.checkOut.time) {
+      return res.status(400).json({
+        success: false,
+        message: "Already checked out today",
+      });
+    }
+
+    attendance.checkOut = {
+      time: new Date(),
+      location: location || null,
+    };
+
+    // Calculate working hours
+    const checkInTime = new Date(attendance.checkIn.time);
+    const checkOutTime = new Date(attendance.checkOut.time);
+    const workingMinutes = Math.floor(
+      (checkOutTime - checkInTime) / (1000 * 60)
+    );
+
+    attendance.workingHours = workingMinutes;
+
+    // Calculate overtime (if working more than 8 hours)
+    if (workingMinutes > 480) {
+      // 8 hours = 480 minutes
+      attendance.overtime = workingMinutes - 480;
+    }
+
+    await attendance.save();
+
+    res.json({
+      success: true,
+      message: "Check-out successful",
+      data: attendance,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+// PUT /api/attendance/:id - Update attendance record
+router.put(
+  "/:id",
+  authenticateToken,
+  authorizeRoles(["admin"]),
+  async (req, res) => {
+    try {
+      const attendance = await Attendance.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+      ).populate("employee", "firstName lastName employeeId");
+
+      if (!attendance) {
+        return res.status(404).json({
+          success: false,
+          message: "Attendance record not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Attendance updated successfully",
+        data: attendance,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
+//Get /api/attendance/me - Get attendance record of the current user
+// router.get("/me", authenticateToken, async(req,res)=>{
+
+//   try{
+//     const {page=1, limit=5, startDate, endDate , status} = req.query;
+
+//     let query = {employee: req.user.employeeId};
+
+//     if(startDate && endDate){
+//       query.date = {
+//         $gte :new Date(startDate),
+//         $lte :new Date(endDate)
+//       }
+//     }
+
+//     if(status){
+//       query.status = status
+//     }
+
+//     const attendance = await Attendance.find(query).
+//     populate("employee", "firstName lastName employeeId")
+//     .limit(limit*1)
+//     .skip((page-1)*limit)
+//     .sort({date: -1})
+
+//     const total = await Attendance.countDocuments(query);
+//      res.json({
+//       success: true,
+//       data: attendance,
+//       pagination: {
+//         currentPage: Number(page),
+//         totalPages: Math.ceil(total / limit),
+//         totalItems: total
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// });
+
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const employeeId = req.user.employeeId; // from JWT payload
+    const { page = 1, limit = 10, startDate, endDate } = req.query;
+
+    const query = { employee: employeeId };
+
+    // Apply date filter if given
+    if (startDate && endDate) {
+      query.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    // Get paginated attendance records
+    const attendance = await Attendance.find(query)
+      .sort({ date: -1 }) // latest first
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const totalRecords = await Attendance.countDocuments(query);
+
+    // ✅ Calculate statistics
+    const allRecords = await Attendance.find(query);
+
+    const present = allRecords.filter((r) => r.status === "present").length;
+    const absent = allRecords.filter((r) => r.status === "absent").length;
+    const late = allRecords.filter((r) => r.status === "late").length;
+    const totalDays = present + absent;
+    const rate = totalDays > 0 ? Math.round((present / totalDays) * 100) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        summary: { present, absent, late, rate },
+        history: attendance,
+      },
+      pagination: {
+        total: totalRecords,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(totalRecords / limit),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching attendance:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
+  }
+});
+
+// router.get("/me", authenticateToken, async (req, res) => {
+//   try {
+//     const { page = 1, limit = 5, startDate, endDate, status } = req.query;
+
+//     // match against schema field
+//     let query = { employee: req.user.employeeId };
+
+//     if (startDate && endDate) {
+//       query.date = {
+//         $gte: new Date(startDate),
+//         $lte: new Date(endDate)
+//       };
+//     }
+
+//     if (status) {
+//       query.status = status;
+//     }
+//     console.log(query)
+//     //{
+// //   employee: '689ec62665e4594843b0caec',
+// //   date: {
+// //     '$gte': 2025-08-01T00:00:00.000Z,
+// //     '$lte': 2025-08-30T18:30:00.000Z
+// //   },
+// //   status: 'present'
+// // }
+
+//     const attendance = await Attendance.find(query)
+//       .populate("employee", "firstName lastName employeeId")
+//       // .limit(limit * 1)
+//       // .skip((page - 1) * limit)
+//       // .sort({ date: -1 });
+//       console.log(attendance);
+//       //[]
+
+//     const total = await Attendance.countDocuments(query);
+//     console.log(total);
+//     //0
+
+//     res.json({
+//       success: true,
+//       data: attendance,
+//       pagination: {
+//         currentPage: Number(page),
+//         totalPages: Math.ceil(total / limit),
+//         totalItems: total
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// });
+
+// GET /api/attendance/reports - Get attendance reports
+router.get("/reports", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, department } = req.query;
+
+    let matchQuery = {};
+
+    if (startDate && endDate) {
+      matchQuery.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const reports = await Attendance.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "employee",
+          foreignField: "_id",
+          as: "employeeData",
+        },
+      },
+      { $unwind: "$employeeData" },
+      {
+        $group: {
+          _id: "$employee",
+          employeeName: {
+            $first: {
+              $concat: [
+                "$employeeData.firstName",
+                " ",
+                "$employeeData.lastName",
+              ],
+            },
+          },
+          totalDays: { $sum: 1 },
+          presentDays: {
+            $sum: { $cond: [{ $eq: ["$status", "present"] }, 1, 0] },
+          },
+          absentDays: {
+            $sum: { $cond: [{ $eq: ["$status", "absent"] }, 1, 0] },
+          },
+          lateDays: { $sum: { $cond: [{ $eq: ["$status", "late"] }, 1, 0] } },
+          totalWorkingHours: { $sum: "$workingHours" },
+          totalOvertime: { $sum: "$overtime" },
+        },
+      },
+      {
+        $addFields: {
+          attendanceRate: {
+            $multiply: [{ $divide: ["$presentDays", "$totalDays"] }, 100],
+          },
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: reports,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+module.exports = router;
