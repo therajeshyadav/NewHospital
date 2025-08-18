@@ -307,49 +307,8 @@ router.put(
   }
 );
 
-//Get /api/attendance/me - Get attendance record of the current user
-// router.get("/me", authenticateToken, async(req,res)=>{
 
-//   try{
-//     const {page=1, limit=5, startDate, endDate , status} = req.query;
 
-//     let query = {employee: req.user.employeeId};
-
-//     if(startDate && endDate){
-//       query.date = {
-//         $gte :new Date(startDate),
-//         $lte :new Date(endDate)
-//       }
-//     }
-
-//     if(status){
-//       query.status = status
-//     }
-
-//     const attendance = await Attendance.find(query).
-//     populate("employee", "firstName lastName employeeId")
-//     .limit(limit*1)
-//     .skip((page-1)*limit)
-//     .sort({date: -1})
-
-//     const total = await Attendance.countDocuments(query);
-//      res.json({
-//       success: true,
-//       data: attendance,
-//       pagination: {
-//         currentPage: Number(page),
-//         totalPages: Math.ceil(total / limit),
-//         totalItems: total
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: error.message
-//     });
-//   }
-// });
 
 router.get("/me", authenticateToken, async (req, res) => {
   try {
@@ -377,7 +336,9 @@ router.get("/me", authenticateToken, async (req, res) => {
     // ✅ Calculate statistics
     const allRecords = await Attendance.find(query);
 
-    const present = allRecords.filter((r) => r.status === "present").length;
+    const present = allRecords.filter(
+      (r) => r.status === "present" || r.status === "late"
+    ).length;
     const absent = allRecords.filter((r) => r.status === "absent").length;
     const late = allRecords.filter((r) => r.status === "late").length;
     const totalDays = present + absent;
@@ -404,62 +365,7 @@ router.get("/me", authenticateToken, async (req, res) => {
   }
 });
 
-// router.get("/me", authenticateToken, async (req, res) => {
-//   try {
-//     const { page = 1, limit = 5, startDate, endDate, status } = req.query;
 
-//     // match against schema field
-//     let query = { employee: req.user.employeeId };
-
-//     if (startDate && endDate) {
-//       query.date = {
-//         $gte: new Date(startDate),
-//         $lte: new Date(endDate)
-//       };
-//     }
-
-//     if (status) {
-//       query.status = status;
-//     }
-//     console.log(query)
-//     //{
-// //   employee: '689ec62665e4594843b0caec',
-// //   date: {
-// //     '$gte': 2025-08-01T00:00:00.000Z,
-// //     '$lte': 2025-08-30T18:30:00.000Z
-// //   },
-// //   status: 'present'
-// // }
-
-//     const attendance = await Attendance.find(query)
-//       .populate("employee", "firstName lastName employeeId")
-//       // .limit(limit * 1)
-//       // .skip((page - 1) * limit)
-//       // .sort({ date: -1 });
-//       console.log(attendance);
-//       //[]
-
-//     const total = await Attendance.countDocuments(query);
-//     console.log(total);
-//     //0
-
-//     res.json({
-//       success: true,
-//       data: attendance,
-//       pagination: {
-//         currentPage: Number(page),
-//         totalPages: Math.ceil(total / limit),
-//         totalItems: total
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: error.message
-//     });
-//   }
-// });
 
 // GET /api/attendance/reports - Get attendance reports
 router.get("/reports", authenticateToken, async (req, res) => {
