@@ -260,5 +260,41 @@ router.get("/balance/:employeeId", authenticateToken, async (req, res) => {
     });
   }
 });
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const employeeId = req.user.employeeId; // from JWT
+    const { page = 1, limit = 3 } = req.query;
+
+    // Convert to numbers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    // Query leaves for this employee
+    const query = { employee: employeeId };
+
+    const totalRecords = await Leave.countDocuments(query);
+
+    const leaves = await Leave.find(query)
+      .sort({ createdAt: -1 }) // latest first
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        history: leaves,
+      },
+      pagination: {
+        total: totalRecords,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalRecords / limitNum),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching leave history:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 module.exports = router;

@@ -307,47 +307,118 @@ router.put(
   }
 );
 
+// router.get("/me", authenticateToken, async (req, res) => {
+//   try {
+//     const employeeId = req.user.employeeId; // from JWT payload
+//     const { page = 1, limit = 10, startDate, endDate } = req.query;
 
+//     const query = { employee: employeeId };
 
+//     // Apply date filter if given
+//     if (startDate && endDate) {
+//       query.date = {
+//         $gte: new Date(startDate),
+//         $lte: new Date(endDate),
+//       };
+//     }
+
+//     // Get paginated attendance records
+//     const attendance = await Attendance.find(query)
+//       .sort({ date: -1 }) // latest first
+//       .skip((page - 1) * limit)
+//       .limit(Number(limit));
+
+//     const totalRecords = await Attendance.countDocuments(query);
+
+//     // ✅ Calculate statistics
+//     const allRecords = await Attendance.find(query);
+//     console.log(allRecords);
+//     const present = allRecords.filter(
+//       (r) => r.status === "present" || r.status === "late"
+//     ).length;
+//     const absent = allRecords.filter((r) => r.status === "absent").length;
+
+//     const late = allRecords.filter((r) => r.status === "late").length;
+//     const totalDays = present + absent;
+//     const rate = totalDays > 0 ? Math.round((present / totalDays) * 100) : 0;
+
+//     res.json({
+//       success: true,
+//       data: {
+//         summary: { present, absent, late, rate },
+//         history: attendance,
+//       },
+//       pagination: {
+//         total: totalRecords,
+//         page: Number(page),
+//         limit: Number(limit),
+//         totalPages: Math.ceil(totalRecords / limit),
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error fetching attendance:", err);
+//     res
+//       .status(500)
+//       .json({ success: false, message: "Server error", error: err.message });
+//   }
+// });
+
+const getWorkingDays = (startDate, endDate) => {
+  const dates = [];
+  let current = new Date(startDate);
+
+  while (current <= endDate) {
+    const day = current.getDay();
+    // skip weekends (0 = Sunday, 6 = Saturday)
+    if (day !== 0 && day !== 6) {
+      dates.push(new Date(current).toDateString());
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
 
 router.get("/me", authenticateToken, async (req, res) => {
   try {
-    const employeeId = req.user.employeeId; // from JWT payload
+    const employeeId = req.user.employeeId;
     const { page = 1, limit = 10, startDate, endDate } = req.query;
 
     const query = { employee: employeeId };
 
-    // Apply date filter if given
-    if (startDate && endDate) {
-      query.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
-    }
-
-    // Get paginated attendance records
     const attendance = await Attendance.find(query)
-      .sort({ date: -1 }) // latest first
+      .sort({ date: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
     const totalRecords = await Attendance.countDocuments(query);
 
-    // ✅ Calculate statistics
+    // Stats calculation
     const allRecords = await Attendance.find(query);
 
-    const present = allRecords.filter(
+    const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const end = endDate ? new Date(endDate) : new Date();
+
+    const workingDays = getWorkingDays(start, end);
+
+    const presentDays = allRecords.filter(
       (r) => r.status === "present" || r.status === "late"
-    ).length;
-    const absent = allRecords.filter((r) => r.status === "absent").length;
+    ).map(r => new Date(r.date).toDateString());
+
+    const absentDays = workingDays.filter((d) => !presentDays.includes(d));
+
     const late = allRecords.filter((r) => r.status === "late").length;
-    const totalDays = present + absent;
-    const rate = totalDays > 0 ? Math.round((present / totalDays) * 100) : 0;
+    const totalDays = workingDays.length;
+    const rate = totalDays > 0 ? Math.round((presentDays.length / totalDays) * 100) : 0;
 
     res.json({
       success: true,
       data: {
-        summary: { present, absent, late, rate },
+        summary: {
+          present: presentDays.length,
+          absent: absentDays.length,
+          late,
+          rate,
+        },
         history: attendance,
       },
       pagination: {
@@ -359,12 +430,9 @@ router.get("/me", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching attendance:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 });
-
 
 
 // GET /api/attendance/reports - Get attendance reports
