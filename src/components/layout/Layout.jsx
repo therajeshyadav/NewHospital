@@ -7,6 +7,8 @@ const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+  )
+}
 -    <div className="flex h-screen bg-background">
 +    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       <Sidebar 
