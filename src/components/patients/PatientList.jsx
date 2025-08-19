@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Plus, Edit, Eye, Trash2, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Eye, Trash2, Filter, Users, Phone, Mail, Calendar, MapPin } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -20,27 +20,53 @@ const PatientList = () => {
     status: 'active'
   });
 
+  // Mock data for demonstration
   useEffect(() => {
-    fetchPatients();
-  }, [currentPage, searchTerm, filters]);
-
-  const fetchPatients = async () => {
-    try {
-      setLoading(true);
-      const response = await patientsAPI.getPatients({
-        page: currentPage,
-        limit: 10,
-        search: searchTerm,
-        ...filters
-      });
-      setPatients(response.data.patients);
-      setTotalPages(response.data.totalPages);
-    } catch (error) {
-      console.error('Error fetching patients:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const mockPatients = [
+      {
+        id: '1',
+        patientId: 'P001',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@email.com',
+        phone: '+1 (555) 123-4567',
+        dateOfBirth: '1985-06-15',
+        gender: 'male',
+        address: '123 Main St, New York, NY',
+        lastVisit: '2024-01-15',
+        status: 'active'
+      },
+      {
+        id: '2',
+        patientId: 'P002',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith@email.com',
+        phone: '+1 (555) 987-6543',
+        dateOfBirth: '1990-03-22',
+        gender: 'female',
+        address: '456 Oak Ave, Los Angeles, CA',
+        lastVisit: '2024-01-10',
+        status: 'active'
+      },
+      {
+        id: '3',
+        patientId: 'P003',
+        firstName: 'Michael',
+        lastName: 'Johnson',
+        email: 'michael.j@email.com',
+        phone: '+1 (555) 456-7890',
+        dateOfBirth: '1978-11-08',
+        gender: 'male',
+        address: '789 Pine St, Chicago, IL',
+        lastVisit: '2024-01-05',
+        status: 'active'
+      }
+    ];
+    
+    setPatients(mockPatients);
+    setLoading(false);
+  }, []);
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
@@ -50,8 +76,8 @@ const PatientList = () => {
   const handleDelete = async (patientId) => {
     if (window.confirm('Are you sure you want to delete this patient?')) {
       try {
-        await patientsAPI.deletePatient(patientId);
-        fetchPatients();
+        // await patientsAPI.deletePatient(patientId);
+        setPatients(patients.filter(p => p.id !== patientId));
       } catch (error) {
         console.error('Error deleting patient:', error);
       }
@@ -73,29 +99,103 @@ const PatientList = () => {
     return age;
   };
 
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      active: 'bg-green-100 text-green-800 border-green-200',
+      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+    };
+    return statusConfig[status] || statusConfig.active;
+  };
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-3xl font-bold">Patient Management</h1>
-          <p className="text-muted-foreground">Manage patient records and information</p>
+          <h1 className="text-3xl font-bold font-display text-slate-900 dark:text-white">
+            Patient Management
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
+            Manage patient records and information
+          </p>
         </div>
-        <Link to="/patients/new">
-          <Button>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline">
+            <Filter className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Link to="/patients/new">
+            <Button>
             <Plus className="h-4 w-4 mr-2" />
             Add Patient
-          </Button>
-        </Link>
+            </Button>
+          </Link>
+        </div>
       </motion.div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-medical-50 rounded-xl flex items-center justify-center">
+                <Users className="h-6 w-6 text-medical-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Patients</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">1,247</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">New This Month</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">89</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Eye className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Active Today</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">156</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
+                <Phone className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Appointments</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">45</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Search & Filter</CardTitle>
+          <CardTitle>Search & Filter Patients</CardTitle>
+          <CardDescription>Find patients by name, email, phone, or patient ID</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
@@ -106,7 +206,7 @@ const PatientList = () => {
                   placeholder="Search patients by name, email, or phone..."
                   value={searchTerm}
                   onChange={handleSearch}
-                  className="pl-10"
+                  className="pl-10 h-11"
                 />
               </div>
             </div>
@@ -114,7 +214,7 @@ const PatientList = () => {
               <select
                 value={filters.gender}
                 onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-                className="px-3 py-2 border rounded-md"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-sm"
               >
                 <option value="">All Genders</option>
                 <option value="male">Male</option>
@@ -124,7 +224,7 @@ const PatientList = () => {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="px-3 py-2 border rounded-md"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-sm"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -138,81 +238,197 @@ const PatientList = () => {
       {/* Patient Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Patients ({patients.length})</CardTitle>
-          <CardDescription>
-            List of all registered patients
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Patients ({patients.length})</CardTitle>
+              <CardDescription>
+                Complete list of registered patients
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm">
+              <Filter className="h-4 w-4 mr-2" />
+              More Filters
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex justify-center py-12">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-medical-500"></div>
+                <span className="text-slate-600 dark:text-slate-400">Loading patients...</span>
+              </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Last Visit</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {patients.map((patient) => (
-                    <TableRow key={patient.id}>
-                      <TableCell className="font-medium">
-                        {patient.patientId || `P${patient.id.slice(-6)}`}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+            <div className="space-y-4">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-200 dark:border-slate-700">
+                      <TableHead className="font-semibold">Patient</TableHead>
+                      <TableHead className="font-semibold">Contact</TableHead>
+                      <TableHead className="font-semibold">Age</TableHead>
+                      <TableHead className="font-semibold">Gender</TableHead>
+                      <TableHead className="font-semibold">Last Visit</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {patients.map((patient) => (
+                      <TableRow key={patient.id} className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-r from-medical-500 to-medical-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {patient.firstName.charAt(0)}{patient.lastName.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900 dark:text-white">
+                                {patient.firstName} {patient.lastName}
+                              </div>
+                              <div className="text-sm text-slate-500 dark:text-slate-400">
+                                ID: {patient.patientId}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Mail className="h-3 w-3 text-slate-400" />
+                              <span className="text-slate-600 dark:text-slate-400">{patient.email}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Phone className="h-3 w-3 text-slate-400" />
+                              <span className="text-slate-600 dark:text-slate-400">{patient.phone}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {calculateAge(patient.dateOfBirth)}
+                        </TableCell>
+                        <TableCell>
+                          <span className="capitalize text-slate-600 dark:text-slate-400">
+                            {patient.gender}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-slate-600 dark:text-slate-400">
+                          {patient.lastVisit ? formatDate(patient.lastVisit) : 'Never'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(patient.status)}`}>
+                            {patient.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Link to={`/patients/${patient.id}`}>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Link to={`/patients/${patient.id}/edit`}>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(patient.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {patients.map((patient) => (
+                  <Card key={patient.id} className="hover:shadow-soft transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gradient-to-r from-medical-500 to-medical-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {patient.firstName.charAt(0)}{patient.lastName.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {patient.firstName} {patient.lastName}
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                              ID: {patient.patientId}
+                            </p>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
-                      <TableCell className="capitalize">{patient.gender}</TableCell>
-                      <TableCell>{patient.phone}</TableCell>
-                      <TableCell>{patient.email}</TableCell>
-                      <TableCell>
-                        {patient.lastVisit ? formatDate(patient.lastVisit) : 'Never'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(patient.status)}`}>
+                          {patient.status}
+                        </span>
+                      </div>
+                      
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Mail className="h-4 w-4 text-slate-400" />
+                          <span className="text-slate-600 dark:text-slate-400">{patient.email}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Phone className="h-4 w-4 text-slate-400" />
+                          <span className="text-slate-600 dark:text-slate-400">{patient.phone}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                          <span className="text-slate-600 dark:text-slate-400">{patient.address}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="text-sm">
+                          <span className="text-slate-500 dark:text-slate-400">Age: </span>
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {calculateAge(patient.dateOfBirth)}
+                          </span>
+                        </div>
+                        <div className="flex space-x-1">
                           <Link to={`/patients/${patient.id}`}>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="sm">
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
                           <Link to={`/patients/${patient.id}/edit`}>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="sm">
                               <Edit className="h-4 w-4" />
                             </Button>
                           </Link>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(patient.id)}
+                            size="sm"
                             className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(patient.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center space-x-2 mt-4">
+            <div className="flex justify-center space-x-2 mt-8">
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -220,7 +436,7 @@ const PatientList = () => {
               >
                 Previous
               </Button>
-              <span className="flex items-center px-4">
+              <span className="flex items-center px-4 text-sm text-slate-600 dark:text-slate-400">
                 Page {currentPage} of {totalPages}
               </span>
               <Button
